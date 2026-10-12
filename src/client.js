@@ -3,7 +3,9 @@ import { State } from './state.js';
 import { Renderer } from './renderer.js';
 import { nextCustomer, submitBrew } from './gameplay.js';
 import { palette } from './palette.js';
+import { createIntro, installGameStyles } from './intro.js';
 
+installGameStyles(asset_list['fonts/UnifrakturCook-Bold.ttf'] ?? '/fonts/UnifrakturCook-Bold.ttf');
 g.web.canvas(document.getElementById('primary'));
 
 g.initialize(function ()
@@ -27,7 +29,13 @@ g.initialize(function ()
             g.state.pouring_color = palette().primaries[2];
         });
 
-        g.renderer.on_press("intro", function() {
+        g.intro = createIntro(function() {
+            g.web._audio_ctx.resume().catch(error => {
+                console.error('Unable to resume game audio:', error);
+            });
+            g.song.audio.play().catch(error => {
+                console.error('Unable to start background music:', error);
+            });
             g.state.intro_easer.target(1);
         });
 
@@ -38,6 +46,7 @@ g.initialize(function ()
 
 
         g.song = new g.web.assets['sound/spooky-kitchen-background']([0,0,0]);
+        g.song.gain(0.5);
 
         g.renderer.on_release(function() { g.state.pouring_color = null; });
 
@@ -82,6 +91,7 @@ g.web.draw(function (dt)
     if (!g.is_running) { return; }
 
     g.renderer.draw(g.state, dt);
+    g.intro.update(g.web._canvas, g.renderer.intro_time, g.state.intro_easer.value);
 });
 
 g.start();

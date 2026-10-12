@@ -11,10 +11,12 @@ Original game code and g.js engine by Kirk Roerig
 ([mrpossoms](https://github.com/mrpossoms)); artwork and prototype iteration by
 Phing1337. Derived from the shared SpookyJam 26 project. Background music:
 SoulfulJamTracks, "Halloween Background Spooky" (612356).
+The Gothic heading uses UnifrakturCook by j. 'mach' wust and Peter Wiegel,
+distributed under the [SIL Open Font License](assets/fonts/unifrakturcook-OFL.txt).
 
 ## Publishing
 
-Pushes to `main` run the color-mixing tests, bake a self-contained `index.html`,
+Pushes to `main` run the color-mixing and intro-animation tests, bake a self-contained `index.html`,
 and deploy it to GitHub Pages. Code, art, and music are included with the
 project owner's confirmation that they may be publicly shared.
 
@@ -33,4 +35,4 @@ npm run bake         # Bake as a self-contained html doc dist/my-game.html
 ```
 
 The engine revision is pinned in `gitman.yml` for reproducible builds.
-Run `npm test` for the color-mixing tests.
+Run `npm test` for the color-mixing and intro-animation tests.

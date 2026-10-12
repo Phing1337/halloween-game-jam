@@ -1,6 +1,7 @@
 import g from 'g.js/web';
 import { State } from './state.js';
 import { Color } from './color.js';
+import { introLayout } from './intro.js';
 
 const lerp = (a, b, t) => a + (b - a) * t;
 
@@ -97,7 +98,7 @@ class Renderer
         	cauldron_fire: g.web.assets['tex/cauldron-fire'],
         	cauldron_fire2: g.web.assets['tex/cauldron-fire-2'],
         	request_bubble: g.web.assets['tex/customer-request-bubble'],
-        	intro: g.web.assets['tex/intro-card'],
+			intro: g.web.assets['tex/intro-card-textless'],
         	spooks: {
         		dracula: {
         			happy: g.web.assets['tex/customer-dracula-happy'],
@@ -132,6 +133,7 @@ class Renderer
         this.selected_vial = null;
         this.pour_particles = [];
         this.pour_emission = 0;
+        this.intro_time = 0;
         const drop = document.createElement('canvas');
         drop.width = 4;
         drop.height = 6;
@@ -142,6 +144,8 @@ class Renderer
         this.drop_texture = g.web.gfx.texture.create(drop).color().clamped().pixelated();
 
         g.web.pointer.on_press(event => {
+            event.preventDefault();
+            if (g.state.intro_easer.value < 1) { return; }
             const rect = g.web._canvas.getBoundingClientRect();
             const pointer = event.touches?.[0] ?? event;
             const p = [
@@ -150,15 +154,6 @@ class Renderer
             ];
         	this.last_pos = p;
         	console.log(`pos: ${p}`);
-
-			if (g.song) {
-				g.song.play();			
-			}
-
-            if (g.state.intro_easer.value < 1) {
-                this.press_handlers.intro();
-                return;
-            }
 
         	for (let [name, model] of Object.entries(this.transforms)) {
                 if (!name.endsWith('_vial')) { continue; }
@@ -351,9 +346,11 @@ class Renderer
 		this.draw_cauldron(state, stage_model);
 		this.draw_request_bubble(state);
 		if (state.intro_easer.value < 1) {
+            this.intro_time += dt;
+            const { size, x, y } = introLayout(W, H, this.intro_time, state.intro_easer.value);
 			this.transforms.intro = draw_region(
-				this.textures.intro, [0, state.intro_easer.value * 1000],
-				[g.web.gfx.height(), g.web.gfx.height()], [0, 0, 1, 1]
+				this.textures.intro, [x, y],
+				[size, size], [0, 0, 1, 1]
 			);
 		} else {
 			delete this.transforms.intro;
