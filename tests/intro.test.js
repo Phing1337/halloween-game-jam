@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { introLayout } from '../src/intro.js';
+import { introLayout, introTextDefaults } from '../src/intro.js';
+
+test('story and instructions share one configurable body block above Play', () => {
+    assert.deepEqual(Object.keys(introTextDefaults), ['title', 'body', 'play']);
+    const { body, play } = introTextDefaults;
+    assert.match(body.text, /Mix potions to heal/);
+    assert.match(body.text, /Tap the cauldron to serve/);
+    assert.ok(body.y + body.text.split('\n').length * body.lineHeight < play.y);
+});
 
 test('the placard falls from above the viewport without bouncing', () => {
     for (const [width, height] of [[750, 450], [375, 667], [1024, 768]]) {

@@ -21,6 +21,11 @@ Justprince, distributed under the SIL Open Font License
 Press **D** on the intro screen to toggle the layout editor. Select a text
 block to edit its wording, font, position, width, size, alignment, and line
 spacing, or drag the outlined text directly. Play is disabled while editing.
+The story and instructions are one **Body text** block, so you can balance
+them together.
+Use the **Line length** slider or the selected block's side handles to control
+wrapping. The slider keeps centered/right-aligned text anchored. **Join lines**
+removes manual breaks so text reflows; Enter in the text field forces a break.
 Press D or Close / preview to check the result. **Copy layout** exports the
 settings to paste into chat. Edits last until the page is refreshed; copy them
 before leaving. Positions and sizes use the original 300 by 300 art canvas.

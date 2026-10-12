@@ -46,6 +46,7 @@ export function installGameStyles(gothicUrl, pixelUrl) {
             position: absolute;
             margin: 0;
             white-space: pre-wrap;
+            overflow-wrap: break-word;
             pointer-events: none;
         }
         #intro-overlay button {
@@ -74,6 +75,20 @@ export function installGameStyles(gothicUrl, pixelUrl) {
             outline: 1px dashed #e7c48c;
         }
         #intro-overlay.editing .editor-selected { outline: 1px solid #fff5c9; }
+        #intro-overlay .intro-resize-handle {
+            display: none;
+            position: absolute;
+            width: 7px;
+            height: 16px;
+            margin: -8px 0 0 -3.5px;
+            box-sizing: border-box;
+            border: 1px solid #422613;
+            background: #fff5c9;
+            cursor: ew-resize;
+            touch-action: none;
+            pointer-events: auto;
+        }
+        #intro-overlay.editing .intro-resize-handle { display: block; }
         #intro-editor {
             position: fixed;
             z-index: 10;
@@ -109,6 +124,7 @@ export function installGameStyles(gothicUrl, pixelUrl) {
             -webkit-touch-callout: default;
         }
         #intro-editor textarea { resize: vertical; }
+        #intro-editor input[type="range"] { padding: 0; accent-color: #e7b07e; }
         .editor-numbers { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
         .editor-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
         #intro-editor button { cursor: pointer; padding: 5px 8px; }
@@ -122,10 +138,8 @@ export function createIntro(onPlay) {
     overlay.setAttribute('aria-labelledby', 'intro-title');
     const title = document.createElement('h1');
     title.id = 'intro-title';
-    const story = document.createElement('p');
-    story.className = 'story';
-    const rules = document.createElement('p');
-    rules.className = 'rules';
+    const body = document.createElement('p');
+    body.className = 'body';
     const playLabel = document.createElement('span');
     playLabel.className = 'play-label';
     playLabel.setAttribute('aria-hidden', 'true');
@@ -139,9 +153,9 @@ export function createIntro(onPlay) {
         play.disabled = true;
         onPlay();
     });
-    overlay.append(title, story, rules, play, playLabel);
+    overlay.append(title, body, play, playLabel);
     document.body.appendChild(overlay);
-    const blocks = { title, story, rules, play: playLabel };
+    const blocks = { title, body, play: playLabel };
     const layout = structuredClone(introTextDefaults);
     const apply = () => {
         for (const [key, node] of Object.entries(blocks)) {
@@ -183,7 +197,6 @@ import { installIntroEditor } from './intro-editor.js';
 
 export const introTextDefaults = {
     title: { text: 'How to Play', x: 44, y: 27, width: 220, size: 32, lineHeight: 29, font: 'gothic', align: 'center' },
-    story: { text: 'Mix potions to heal\nyour spooky friends.', x: 44, y: 58, width: 220, size: 12, lineHeight: 12, font: 'pixel', align: 'center' },
-    rules: { text: 'Hold the vials to mix colors.\nMatch their color.\nTap the cauldron to serve.', x: 44, y: 82, width: 220, size: 12, lineHeight: 11, font: 'pixel', align: 'center' },
+    body: { text: 'Mix potions to heal\nyour spooky friends.\nHold the vials to mix colors.\nMatch their color.\nTap the cauldron to serve.', x: 44, y: 58, width: 220, size: 12, lineHeight: 11, font: 'pixel', align: 'center' },
     play: { text: 'PLAY', x: 116, y: 117, width: 76, size: 20, lineHeight: 24, font: 'pixel', align: 'center' }
 };
