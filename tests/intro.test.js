@@ -2,12 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { introLayout, introTextDefaults } from '../src/intro.js';
 
-test('story and instructions share one configurable body block above Play', () => {
+test('the single body block uses the finalized text layout', () => {
     assert.deepEqual(Object.keys(introTextDefaults), ['title', 'body', 'play']);
-    const { body, play } = introTextDefaults;
-    assert.match(body.text, /Mix potions to heal/);
-    assert.match(body.text, /Tap the cauldron to serve/);
-    assert.ok(body.y + body.text.split('\n').length * body.lineHeight < play.y);
+    assert.deepEqual(introTextDefaults.body, {
+        text: 'Mix potions to heal your spooky friends. Hold the vials to mix colors. Match their color. Tap the cauldron to serve.',
+        x: 50.5, y: 68.5, width: 193, size: 12, lineHeight: 11,
+        font: 'pixel', align: 'center'
+    });
 });
 
 test('the placard falls from above the viewport without bouncing', () => {
