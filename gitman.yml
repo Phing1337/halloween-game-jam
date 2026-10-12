@@ -1,0 +1,18 @@
+location: deps
+sources:
+  - repo: https://github.com/mrpossoms/g.js
+    name: g.js
+    rev: 309137fb903a629d3ccc4a447bc7fe8e97cdb87a
+    type: git
+    params:
+    sparse_paths:
+      -
+    links:
+      -
+    scripts:
+      -
+    patches:
+      -
+default_group: ''
+groups:
+  -

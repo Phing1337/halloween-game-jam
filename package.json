@@ -1,0 +1,11 @@
+{
+  "name": "halloween-game-jam",
+  "private": true,
+  "type": "module",
+  "scripts": { 
+    "dev": "g dev",
+    "bake": "g bake", 
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": { "g.js": "file:deps/g.js" }
+}

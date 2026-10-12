@@ -1,0 +1,364 @@
+import g from 'g.js/web';
+import { State } from './state.js';
+import { Color } from './color.js';
+
+const lerp = (a, b, t) => a + (b - a) * t;
+
+const draw_textured_quad = (tex, model, uv, tint=[1,1,1,1]) => {
+    g.web.assets['mesh/plane'].using_shader('sprite')
+        .with_attribute({name:'a_position', buffer: 'positions', components: 3})
+        .with_attribute({name:'a_tex_coord', buffer: 'texture_coords', components: 2})
+        .set_uniform('u_model').mat4(model)
+        .set_uniform('u_uv').vec4(uv)
+        .set_uniform('u_tint').vec4(tint)
+        .set_uniform('u_texture').texture(tex)
+        .draw_tri_fan();	
+};
+
+const draw_region = (tex, p, s, uv, tint=[1,1,1,1]) => {
+    const W = g.web.gfx.width(), H = g.web.gfx.height();
+    // the plane's uvs are flipped on both axes, so flip the quad to match
+    const model = [].mat_scale([-s[0] / W, -s[1] / H, 1])
+                    .mat_mul([].translate([2 * p[0] / W, 2 * p[1] / H, 0]));
+
+    draw_textured_quad(tex, model, uv, tint);
+
+    return model;
+};
+
+const vial_model = (screen_w, screen_h, tex, p, t) => {
+    const s = 0.5;
+    return [].I(4)
+    		 .mat_mul([].mat_scale([s * (tex.width/tex.height), s, 1]))
+    		 .mat_mul([].translate([0, -0.4, 0]))
+    		 .mat_mul([].rotation([0, 0, 1], t))
+             .mat_mul([].translate([p[0], p[1], 0]));	
+}
+
+const draw_vial = (tex, stage_model, p, t) => {
+    const W = g.web.gfx.width(), H = g.web.gfx.height();
+    // the plane's uvs are flipped on both axes, so flip the quad to match
+    const model = stage_model.mat_mul(vial_model(W, H, tex, p, t));
+
+    g.web.assets['mesh/plane'].using_shader('sprite')
+        .with_attribute({name:'a_position', buffer: 'positions', components: 3})
+        .with_attribute({name:'a_tex_coord', buffer: 'texture_coords', components: 2})
+        .set_uniform('u_model').mat4(model)
+        .set_uniform('u_uv').vec4([0, 0, 1, 1])
+        .set_uniform('u_tint').vec4([1, 1, 1, 1])
+        .set_uniform('u_texture').texture(tex)
+        .draw_tri_fan();
+
+    return model;
+};
+
+const draw_fit = (tex, tint) => {
+	return draw_region(tex, [0, 0], [g.web.gfx.width() * (1/g.web.gfx.aspect()), g.web.gfx.height()], [0, 0, 1, 1], tint);
+};
+
+const draw_brew = (stage_model, pos, tex, potion) => {
+	const mask_ratio = 226/300;
+	const volume = Math.min(1, potion.volume);
+	if (potion.color === null || volume <= 0) { return stage_model; }
+
+    // the plane's uvs are flipped on both axes, so flip the quad to match
+    const model = stage_model.mat_mul([].translate([pos[0], pos[1] + -2 + (1 - mask_ratio) * 2 * volume, 0]));
+
+    const v = lerp(mask_ratio, 1, 1 - volume);
+    let rgba = potion.color.RGB;
+    rgba.push(1);
+
+    g.web.assets['mesh/plane'].using_shader('sprite')
+        .with_attribute({name:'a_position', buffer: 'positions', components: 3})
+        .with_attribute({name:'a_tex_coord', buffer: 'texture_coords', components: 2})
+        .set_uniform('u_model').mat4(model)
+        .set_uniform('u_uv').vec4([0,v,1,1])
+        .set_uniform('u_tint').vec4(rgba)
+        .set_uniform('u_texture').texture(tex)
+        .draw_tri_fan();
+
+    return model;
+};
+
+class Renderer
+{
+	constructor()
+	{
+        gl.disable(gl.DEPTH_TEST);
+
+        this.textures = {
+			background: g.web.assets['tex/shop-background'],
+        	stage: g.web.assets['tex/shop-stage-frame'],
+        	cauldron: g.web.assets['tex/cauldron'],
+        	red_vial: g.web.assets['tex/primary-potion-vial-red'],
+			yellow_vial: g.web.assets['tex/primary-potion-vial-yellow'],
+        	blue_vial: g.web.assets['tex/primary-potion-vial-blue'],
+        	cauldron_mask: g.web.assets['tex/cauldron-mask'],
+        	cauldron_fire: g.web.assets['tex/cauldron-fire'],
+        	cauldron_fire2: g.web.assets['tex/cauldron-fire-2'],
+        	request_bubble: g.web.assets['tex/customer-request-bubble'],
+        	intro: g.web.assets['tex/intro-card'],
+        	spooks: {
+        		dracula: {
+        			happy: g.web.assets['tex/customer-dracula-happy'],
+        			sad: g.web.assets['tex/customer-dracula']
+        		},
+        		ghost: {
+        			happy: g.web.assets['tex/customer-ghost-happy'],
+					sad: g.web.assets['tex/customer-ghost']
+				},
+				mummy: {
+					happy: g.web.assets['tex/customer-mummy-happy'],
+					sad: g.web.assets['tex/customer-mummy']
+				},
+				pumpkin: {
+					happy: g.web.assets['tex/customer-pumpkin-head-happy'],
+					sad: g.web.assets['tex/customer-pumpkin-head']
+				}
+        	}
+        };
+
+        this.shaders = {
+        	sprite: g.web.gfx.shader.create('sprite',
+	            g.web.assets['shaders/sprite.vert'],
+	            g.web.assets['shaders/sprite.frag']
+	        )
+        };
+
+        this.transforms = [];
+        this.last_pos = null;
+        this.press_handlers = {};
+        this.release_handler = null;
+        this.selected_vial = null;
+        this.pour_particles = [];
+        this.pour_emission = 0;
+        const drop = document.createElement('canvas');
+        drop.width = 4;
+        drop.height = 6;
+        const drop_context = drop.getContext('2d');
+        drop_context.fillStyle = '#fff';
+        drop_context.fillRect(1, 0, 2, 6);
+        drop_context.fillRect(0, 1, 4, 4);
+        this.drop_texture = g.web.gfx.texture.create(drop).color().clamped().pixelated();
+
+        g.web.pointer.on_press(event => {
+            const rect = g.web._canvas.getBoundingClientRect();
+            const pointer = event.touches?.[0] ?? event;
+            const p = [
+                2 * (pointer.clientX - rect.left) / rect.width - 1,
+                1 - 2 * (pointer.clientY - rect.top) / rect.height
+            ];
+        	this.last_pos = p;
+        	console.log(`pos: ${p}`);
+
+			if (g.song) {
+				g.song.play();			
+			}
+
+            if (g.state.intro_easer.value < 1) {
+                this.press_handlers.intro();
+                return;
+            }
+
+        	for (let [name, model] of Object.entries(this.transforms)) {
+                if (!name.endsWith('_vial')) { continue; }
+        		let inv_model = model.inverse();
+				let p_local = [[p[0], p[1], 0, 1]].mat_mul(inv_model)[0];
+				let clicked = p_local[0] >= -1 && p_local[0] <= 1 && p_local[1] >= -1 && p_local[1] <= 1;
+
+				if (clicked)
+				{
+					this.selected_vial = name;
+					console.log(`name: ${name}`);
+					console.log(`\tp_local: ${p_local}`);
+					console.log(`\tClicked!`);	
+
+					if (this.press_handlers[name]) {
+						this.press_handlers[name]();
+					}
+				} 
+			}
+
+			if (p[1] < -0.5 && this.press_handlers['brew']) {
+				this.press_handlers['brew']();
+			}
+		});
+
+		g.web.pointer.on_release(event => {
+			if (this.release_handler) { this.release_handler(); }
+			this.selected_vial = null;
+		});
+
+		this.vial_phase_shift = {
+			"yellow_vial": Math.random(), 
+			"red_vial": Math.random(),
+			"blue_vial": Math.random()
+		};
+	}
+
+	on_press(name, cb) 
+	{ 
+		this.press_handlers[name] = cb; 
+	}
+
+	on_release(cb) { this.release_handler = cb; }
+
+	draw_customer(state)
+	{
+		const customer = state.customers.at(-1);
+
+		if (!customer) { return; }
+
+		let tex = this.textures.spooks[customer.type].sad;
+		let pos = [customer.easer.value * 500, 0];
+		if (customer.satisfied_with_potion(state.cauldron.potion)) {
+			tex = this.textures.spooks[customer.type].happy;
+			pos = [customer.easer.value * 500 + Math.cos(state.time_s * 2) * 10, Math.sin(state.time_s * 20) * 4];
+		}
+
+		draw_region(tex, pos, [g.web.gfx.width() * (1/g.web.gfx.aspect()), g.web.gfx.height()], [0, 0, 1, 1]);
+	}
+
+	draw_request_bubble(state)
+	{
+		const customer = state.customers.at(-1);
+		if (!customer) { return; }
+		let tint = [1,0,0,1]
+
+		if (customer.easer.is_done) {
+			if (customer.potion.min.color === null || customer.potion.max.color === null) {
+				let rgb = (new Color((state.time_s * 360) % 359, 1, 1)).RGB;
+				tint = [rgb[0], rgb[1], rgb[2], 1];
+			} else {
+				let rgb = customer.potion.target.color.RGB;
+				tint = [rgb[0], rgb[1], rgb[2], 1];
+			}
+
+			draw_fit(this.textures.request_bubble, tint);
+		}
+	}
+
+	draw_cauldron(state, stage_model)
+	{
+	    const W = g.web.gfx.width(), H = g.web.gfx.height();
+		let potion = state.cauldron.potion;
+		let model = stage_model;
+
+		let p = [0, 0];
+		let jiggle = [0, 0];
+
+		if (potion.volume > 0) {
+			const phase = state.time_s * 2 * Math.PI * 0.6;
+			p = [0, 4 * Math.sin(phase) / H];
+			jiggle = [2 * (Math.random() - 0.5) / W, (Math.random() - 0.5) / H];
+		}
+		model = stage_model.mat_mul([].translate([jiggle[0], jiggle[1], 0]));
+
+	    // the plane's uvs are flipped on both axes, so flip the quad to match
+	    const s = [g.web.gfx.width() * (1/g.web.gfx.aspect()), g.web.gfx.height()];
+	    const fit_model = model;
+
+		draw_brew(model, p, this.textures.cauldron_mask, potion);
+		// draw_fit(this.textures.cauldron);
+		// draw_region(this.textures.cauldron, [0, 0], [g.web.gfx.width() * (1/g.web.gfx.aspect()), g.web.gfx.height()], [0, 0, 1, 1]);
+		draw_textured_quad(this.textures.cauldron, fit_model, [0, 0, 1, 1]);
+		draw_textured_quad(parseInt(state.time_s * 10) % 2 == 0 ? this.textures.cauldron_fire2 : this.textures.cauldron_fire, [].mat_scale([-s[0] / W, -s[1] / H, 1]), [0, 0, 1, 1]);
+	}
+
+	draw_pour_particles(state, dt)
+	{
+		const W = g.web.gfx.width(), H = g.web.gfx.height();
+		const step = Math.min(dt, 0.05);
+		const name = this.selected_vial;
+		if (state.pouring_color && name && this.transforms[name]) {
+			const tex = this.textures[name];
+			// The blue export includes 17 transparent rows below its outlet.
+			const bottom = name === 'blue_vial' ? tex.height - 17 : tex.height;
+			const outlet = [[0, 2 * bottom / tex.height - 1, 0, 1]]
+				.mat_mul(this.transforms[name])[0];
+			const x = outlet[0] * W / H;
+			this.pour_emission = Math.min(4, this.pour_emission + step * 90);
+			while (this.pour_emission >= 1 && this.pour_particles.length < 180) {
+				this.pour_emission -= 1;
+				this.pour_particles.push({
+					x: x + (Math.random() - 0.5) * 0.035,
+					y: outlet[1],
+					vx: (Math.random() - 0.5) * 0.025,
+					vy: -0.35,
+					age: 0,
+					size: 0.01 + Math.random() * 0.004,
+					color: state.pouring_color.RGB.slice(0, 3)
+				});
+			}
+		} else {
+			this.pour_emission = 0;
+		}
+		for (const particle of this.pour_particles) {
+			particle.age += step;
+			particle.vy -= step * 3.8;
+			particle.x += particle.vx * step;
+			particle.y += particle.vy * step;
+		}
+		this.pour_particles = this.pour_particles.filter(p => p.y > -0.85 && p.age < 1.5);
+		for (const particle of this.pour_particles) {
+			const length = particle.size * Math.min(2.5, 1 + Math.abs(particle.vy) * 0.5);
+			const model = [].mat_scale([particle.size * H / W, length, 1])
+				.mat_mul([].translate([particle.x * H / W, particle.y, 0]));
+			draw_textured_quad(this.drop_texture, model, [0, 0, 1, 1], [...particle.color, 1]);
+		}
+	}
+
+	draw(state, dt)
+	{
+		if (!state) { return; }
+				
+		gl.clearColor(0.2, 0.0, 0.25, 1);
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+		draw_fit(this.textures.background);
+		const clip_width = Math.min(g.web.gfx.width(), g.web.gfx.height());
+		gl.enable(gl.SCISSOR_TEST);
+		gl.scissor(
+			Math.floor((g.web.gfx.width() - clip_width) / 2),
+			0,
+			clip_width,
+			g.web.gfx.height()
+		);
+		try {
+			this.draw_customer(state);
+		} finally {
+			gl.disable(gl.SCISSOR_TEST);
+		}
+		
+		let stage_model = draw_fit(this.textures.stage);
+
+    	const W = g.web.gfx.width(), H = g.web.gfx.height();
+
+    	const sway_speeds = [
+    		this.selected_vial === 'red_vial' ? 0 : 0.1,
+    		this.selected_vial === 'blue_vial' ? 0 : 0.1,
+    		this.selected_vial === 'yellow_vial' ? 0 : 0.1
+    	];
+
+    	if (this.selected_vial) {
+    		this.vial_phase_shift[this.selected_vial] = -state.time_s;
+    	}
+
+		this.transforms['red_vial'] = draw_vial(this.textures.red_vial, stage_model, [-250 / W, 1.25], Math.sin(state.time_s + this.vial_phase_shift['red_vial']) * 0.01);
+		this.transforms['blue_vial'] = draw_vial(this.textures.blue_vial, stage_model, [250 / W, 1.25], Math.sin(state.time_s + this.vial_phase_shift['blue_vial']) * 0.01);
+		this.transforms['yellow_vial'] = draw_vial(this.textures.yellow_vial, stage_model, [0 / W, 1.25], Math.sin(state.time_s + this.vial_phase_shift['yellow_vial']) * 0.01);
+		this.draw_pour_particles(state, dt);
+		this.draw_cauldron(state, stage_model);
+		this.draw_request_bubble(state);
+		if (state.intro_easer.value < 1) {
+			this.transforms.intro = draw_region(
+				this.textures.intro, [0, state.intro_easer.value * 1000],
+				[g.web.gfx.height(), g.web.gfx.height()], [0, 0, 1, 1]
+			);
+		} else {
+			delete this.transforms.intro;
+		}
+	}
+}
+
+export { Renderer, vial_model };
