@@ -11,8 +11,19 @@ Original game code and g.js engine by Kirk Roerig
 ([mrpossoms](https://github.com/mrpossoms)); artwork and prototype iteration by
 Phing1337. Derived from the shared SpookyJam 26 project. Background music:
 SoulfulJamTracks, "Halloween Background Spooky" (612356).
-The Gothic heading uses UnifrakturCook by j. 'mach' wust and Peter Wiegel,
-distributed under the [SIL Open Font License](assets/fonts/unifrakturcook-OFL.txt).
+Pixel fonts: Jacquard 12 by Sarah Cadigan-Fried and Pixelify Sans by Stefie
+Justprince, distributed under the SIL Open Font License
+([Jacquard 12](assets/fonts/jacquard12-OFL.txt),
+[Pixelify Sans](assets/fonts/pixelifysans-OFL.txt)).
+
+## Temporary placard editor
+
+Press **D** on the intro screen to toggle the layout editor. Select a text
+block to edit its wording, font, position, width, size, alignment, and line
+spacing, or drag the outlined text directly. Play is disabled while editing.
+Press D or Close / preview to check the result. **Copy layout** exports the
+settings to paste into chat. Edits last until the page is refreshed; copy them
+before leaving. Positions and sizes use the original 300 by 300 art canvas.
 
 ## Publishing
 

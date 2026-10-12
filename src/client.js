@@ -5,7 +5,10 @@ import { nextCustomer, submitBrew } from './gameplay.js';
 import { palette } from './palette.js';
 import { createIntro, installGameStyles } from './intro.js';
 
-installGameStyles(asset_list['fonts/UnifrakturCook-Bold.ttf'] ?? '/fonts/UnifrakturCook-Bold.ttf');
+installGameStyles(
+    asset_list['fonts/Jacquard12-Regular.ttf'] ?? '/fonts/Jacquard12-Regular.ttf',
+    asset_list['fonts/PixelifySans.ttf'] ?? '/fonts/PixelifySans.ttf'
+);
 g.web.canvas(document.getElementById('primary'));
 
 g.initialize(function ()

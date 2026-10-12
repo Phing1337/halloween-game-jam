@@ -134,6 +134,7 @@ class Renderer
         this.pour_particles = [];
         this.pour_emission = 0;
         this.intro_time = 0;
+        this.light_time = 0;
         const drop = document.createElement('canvas');
         drop.width = 4;
         drop.height = 6;
@@ -142,6 +143,17 @@ class Renderer
         drop_context.fillRect(1, 0, 2, 6);
         drop_context.fillRect(0, 1, 4, 4);
         this.drop_texture = g.web.gfx.texture.create(drop).color().clamped().pixelated();
+        const glow = document.createElement('canvas');
+        glow.width = glow.height = 128;
+        const glow_context = glow.getContext('2d');
+        const gradient = glow_context.createRadialGradient(64, 64, 0, 64, 64, 64);
+        gradient.addColorStop(0, 'rgba(255,255,255,0.9)');
+        gradient.addColorStop(0.2, 'rgba(255,255,255,0.55)');
+        gradient.addColorStop(0.5, 'rgba(255,255,255,0.2)');
+        gradient.addColorStop(1, 'rgba(255,255,255,0)');
+        glow_context.fillStyle = gradient;
+        glow_context.fillRect(0, 0, 128, 128);
+        this.glow_texture = g.web.gfx.texture.create(glow).color().clamped().smooth();
 
         g.web.pointer.on_press(event => {
             event.preventDefault();
@@ -303,9 +315,33 @@ class Renderer
 		}
 	}
 
+    draw_candle_glows()
+    {
+        const W = g.web.gfx.width(), H = g.web.gfx.height();
+        const scale = H / 300;
+        const candles = [[22, 245, 24], [35, 268, 15], [285, 232, 24], [268, 260, 16], [280, 267, 14]];
+        gl.enable(gl.SCISSOR_TEST);
+        gl.scissor(Math.floor((W - Math.min(W, H)) / 2), 0, Math.min(W, H), H);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+        try {
+            for (const [index, [x, y, radius]] of candles.entries()) {
+                const phase = this.light_time * 1.7 + index * 1.3;
+                const pulse = Math.sin(phase);
+                const alpha = 0.35 + pulse * 0.06 + Math.sin(this.light_time * 4.3 + index) * 0.02;
+                const diameter = radius * 2 * scale * (1 + pulse * 0.04);
+                draw_region(this.glow_texture, [(x - 150) * scale, (150 - y) * scale],
+                    [diameter, diameter], [0, 0, 1, 1], [1, 0.6, 0.22, alpha]);
+            }
+        } finally {
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+            gl.disable(gl.SCISSOR_TEST);
+        }
+    }
+
 	draw(state, dt)
 	{
 		if (!state) { return; }
+        this.light_time += dt;
 				
 		gl.clearColor(0.2, 0.0, 0.25, 1);
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -344,6 +380,7 @@ class Renderer
 		this.transforms['yellow_vial'] = draw_vial(this.textures.yellow_vial, stage_model, [0 / W, 1.25], Math.sin(state.time_s + this.vial_phase_shift['yellow_vial']) * 0.01);
 		this.draw_pour_particles(state, dt);
 		this.draw_cauldron(state, stage_model);
+        this.draw_candle_glows();
 		this.draw_request_bubble(state);
 		if (state.intro_easer.value < 1) {
             this.intro_time += dt;
